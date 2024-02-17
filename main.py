@@ -877,7 +877,9 @@ async def handle_reroll_command(message):
                 # Generate a random number between 1 and 6
                 dice_roll = generate_random_number()
                 testing_tile = team['previous_tile'] + dice_roll
-                if testing_tile in team['has_landed']:
+                if dice_roll == team['previous_roll']
+                    continue
+                elif testing_tile in team['has_landed']:
                     continue
                 else:
                     break
