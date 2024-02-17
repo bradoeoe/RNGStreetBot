@@ -4,14 +4,8 @@ import asyncio
 import json
 import datetime
 
-# SassToken
-# TOKEN = 'MTE5NTkwMjA5NjEwOTc0NDEzOA.GyJqZT.t8Pul0a7ojod1fcjzLX6u9KVDifzTmapPtlJpQ'
-
-# TestToken
-# TOKEN = 'MTE5NjQyNTY4NDg0Mzc3Mzk5Mg.Gxrg1Q.R0Yu-IczXqzexOd-7fogAHN9bS5jvywI3HyDl8'
-
 # RNGStreetToken
-TOKEN = 'MTIwNTM5NzU2MDcxODUzMjY1OQ.GhoR3q.P3h2Pl-2wvrTgv6Rr9C1rL9Ib0x_JeOVEGcTmc'
+TOKEN = 'TOKEN'
 
 # Prefix to use with Discord
 PREFIX = '$'
