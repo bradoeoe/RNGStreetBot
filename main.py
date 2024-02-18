@@ -8,6 +8,7 @@ import datetime
 TOKEN = 'TOKEN'
 
 ardy_pigs_roll = 0
+karamja_monkies_roll = 7
 
 # Prefix to use with Discord
 PREFIX = '$'
