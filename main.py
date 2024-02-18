@@ -7,6 +7,8 @@ import datetime
 # RNGStreetToken
 TOKEN = 'TOKEN'
 
+ardy_pigs_roll = 0
+
 # Prefix to use with Discord
 PREFIX = '$'
 
@@ -78,7 +80,7 @@ tile_messages = {
     48: "(Tile 48) TOB Purple",
     49: "(Tile 49) Holy Elixir",
     50: "(Tile 50) TOB Purple",
-    51: "(Tile 51) Zenyte Shard or Uncut Onyx",
+    51: "(Tile 51) Zenyte Shard and Uncut Onyx",
     52: "(Tile 52) Black Mask",
     53: "(Tile 53) Virtus Piece",
     54: "(Tile 54) Magic Fang",
@@ -434,7 +436,8 @@ def get_team_by_name_or_id(name_or_id):
 
 
 async def handle_leaderboard_command(message):
-    if teams:
+    async def handle_leaderboard_command(message):
+    '''if teams:
         # Sort teams based on their tile number in descending order
         sorted_teams = sorted(teams.values(), key=lambda x: x['tile'], reverse=True)
         leaderboard_info = "\n".join(
@@ -448,7 +451,32 @@ async def handle_leaderboard_command(message):
     for t in teams.values():
         if message.author.id in t['members']:
             team = t
-            break
+            break'''
+    if teams:
+
+        sorted_teams = sorted(teams.values(), key=lambda x: x['tile'], reverse=True)
+
+        embed = discord.Embed(title="Leaderboard!", description="Oooooh, I wonder who is winning?!?! Find out below:",
+                              color=0x3498db)  # You can customize the color
+        embed.timestamp = datetime.datetime.now()
+
+        for i, team in enumerate(sorted_teams):
+            print(i)
+            print(team)
+            completed_tiles_name = []
+            for tile in team['completed_tiles']:
+                completed = await handle_tile_result(message, tile, team)
+                completed_tiles_name.append(completed)
+            if i == 0:
+                embed.set_thumbnail(url=team['team_logo'])
+            sorted_completed_tiles = '\n'.join(completed_tiles_name)
+
+            embed.add_field(name=f"**{i + 1} - {team['name'].title()}**",
+                            value=f"Current tile:{await handle_tile_result(message, team['tile'], team)}\n"
+                                  f"Tiles completed:{team['tiles_done']}",
+                                  #f"Finished tiles: \n{sorted_completed_tiles}\n",
+                            inline=True)
+        await message.channel.send(embed=embed)
 
 
 async def handle_team_players_command(message):
