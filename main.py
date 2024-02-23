@@ -162,6 +162,8 @@ async def on_message(message):
             await handle_team_logo_command(message, args)
         elif command == 'team_name':
             await handle_team_name_command(message, args)
+        elif command == 'shakeitoff':
+            await handle_shake_it_off(message, args)
         else:
             await message.channel.send(f"Unknown command: {command}. Use {PREFIX}info to see available commands.")
 
@@ -1100,6 +1102,9 @@ async def handle_leave_team_command(message):
         await message.channel.send(f"{message.author.mention} has left the team.")
     else:
         await message.channel.send("You are not part of any team.")
+
+async def handle_shake_it_off(message):
+    await message.channel.send("https://youtu.be/mvVBuG4IOW4?si=6q8WX4hTnQz_d66R")
 
 
 '''async def handle_current_tile_command(message):
