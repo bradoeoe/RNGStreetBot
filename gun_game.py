@@ -8,8 +8,7 @@ import io
 from datetime import datetime
 
 mod_role = "gungamemod"
-player_role = "gungame"
-guild = 1196425312708345896
+player_role = "gungamer"
 
 
 # LOVE YOU BLAKOS <3
@@ -92,6 +91,11 @@ class GunGame(commands.Cog):
         cursor.execute('SELECT discord_id FROM gun_game')
         participants = cursor.fetchall()
         random.shuffle(participants)
+        embed = discord.Embed(
+            title="Gun Game Match ups",
+            description=f"The game is now live! The codeword is **{codeword}**",
+            color=discord.Color.green()
+        )
 
         # Pair gunners and update their levels to 1, should've just made this 1 to begin with :) But here we are
         for i in range(0, len(participants), 2):
@@ -100,15 +104,16 @@ class GunGame(commands.Cog):
                 p2 = participants[i + 1][0]
                 cursor.execute('UPDATE gun_game SET level = 1, opponent_id = ? WHERE discord_id = ?', (p2, p1))
                 cursor.execute('UPDATE gun_game SET level = 1, opponent_id = ? WHERE discord_id = ?', (p1, p2))
-                await ctx.send(f"<@{p1}> has been paired with <@{p2}>. Good luck!")
+                embed.add_field(name=f"Match {i // 2 + 1}", value=f"<@{p1}> vs <@{p2}>", inline=False)
 
         conn.commit()
         conn.close()
 
-        await ctx.send(f"The game is live! The codeword is {codeword}")
+        await ctx.send(embed=embed)
 
     @commands.hybrid_command(name="kill_confirmed", description="Confirm a kill in the gun game.")
-    async def kill_confirmed(self, ctx: commands.Context):
+    @app_commands.describe(proof="Screenshot of your proof")
+    async def kill_confirmed(self, ctx: commands.Context, proof: discord.Attachment):
         db = await get_db(ctx)
         if not await is_game_live(db):
             await ctx.reply("The game is not currently live.")
@@ -132,20 +137,23 @@ class GunGame(commands.Cog):
             conn.close()
             return
 
-        await ctx.send(f"<@{ctx.author.id}> has beaten <@{opponent_id}>.")
-
+        embed = discord.Embed(
+            title="Kill Confirmed",
+            description=f"<@{ctx.author.id}> has beaten <@{opponent_id}>.",
+            color=discord.Color.red()
+        )
         # Mark the user as a winner, their opponent as a LOSER HAHAHA and increase winners level by 1
         cursor.execute(
             'UPDATE gun_game SET bracket = "winner", level = level + 1, opponent_id = NULL WHERE discord_id = ?',
             (ctx.author.id,))
         cursor.execute('UPDATE gun_game SET bracket = "loser", opponent_id = NULL WHERE discord_id = ?', (opponent_id,))
-
         # Log baby - can't wait for some kewl stats at the end :)
         cursor.execute('INSERT INTO game_actions (discord_id, action, level, timestamp) VALUES (?, ?, ?, ?)',
                        (ctx.author.id, 'win', current_level + 1, datetime.now()))
         cursor.execute('INSERT INTO game_actions (discord_id, action, level, timestamp) VALUES (?, ?, ?, ?)',
                        (opponent_id, 'lose', current_level, datetime.now()))
 
+        new_matchups = []
         # checks if a user is waiting to be paired with a LOSER
         cursor.execute(
             'SELECT discord_id FROM gun_game WHERE bracket = "loser" AND opponent_id IS NULL AND discord_id != ?',
@@ -155,9 +163,7 @@ class GunGame(commands.Cog):
             waiting_loser_id = waiting_loser[0]
             cursor.execute('UPDATE gun_game SET opponent_id = ? WHERE discord_id = ?', (waiting_loser_id, opponent_id))
             cursor.execute('UPDATE gun_game SET opponent_id = ? WHERE discord_id = ?', (opponent_id, waiting_loser_id))
-            await ctx.send(f"<@{opponent_id}> has been paired with <@{waiting_loser_id}>. Good luck!")
-        else:
-            await ctx.send(f"<@{opponent_id}>, you have no new opponent at this time.")
+            new_matchups.append(f"<@{opponent_id}> vs <@{waiting_loser_id}>")
 
         # Checks if a user is waiting to be paired with a winnnnna
         cursor.execute(
@@ -168,12 +174,74 @@ class GunGame(commands.Cog):
             new_opponent_id = new_opponent[0]
             cursor.execute('UPDATE gun_game SET opponent_id = ? WHERE discord_id = ?', (new_opponent_id, ctx.author.id))
             cursor.execute('UPDATE gun_game SET opponent_id = ? WHERE discord_id = ?', (ctx.author.id, new_opponent_id))
-            await ctx.send(f"<@{ctx.author.id}> has been paired with <@{new_opponent_id}>. Good luck!")
+            new_matchups.append(f"<@{ctx.author.id}> vs <@{new_opponent_id}>")
+
+        if new_matchups:
+            embed.add_field(name="New Matchups", value="\n".join(new_matchups), inline=False)
         else:
-            await ctx.send(f"<@{ctx.author.id}>, you have no new opponent at this time.")
+            embed.add_field(name="No New Opponents", value="No new opponents at this time.", inline=False)
+
+        embed.set_image(url=proof.url)
 
         conn.commit()
         conn.close()
+
+        await ctx.send(embed=embed)
+
+    @commands.hybrid_command(name="gun_game_signup_other", description="Sign up another user for the gun game!")
+    @app_commands.describe(user="The user you want to sign up.")
+    @app_commands.describe(rsn="Their RuneScape name.")
+    @app_commands.describe(proof="Screenshot of their participation proof")
+    async def gun_game_signup_other(self, ctx: commands.Context, user: discord.User, rsn: str,
+                                    proof: discord.Attachment):
+        # Check if the user already signed up and don't let them sign up twice :)
+        db = await get_db(ctx)
+        conn = sqlite3.connect(db)
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM gun_game WHERE discord_id = ?", (user.id,))
+        existing_player = cursor.fetchone()
+        if existing_player:
+            await ctx.reply(f"{user.mention} has already signed up for the gun game.")
+            conn.close()
+            return
+
+        # Determine the initial level based on whether the game is live or not
+        initial_level = 0
+        if await is_game_live(db):
+            initial_level = 1
+
+        # Insert the player into the players db, new players start as LOSERS
+        cursor.execute(
+            "INSERT INTO gun_game (discord_id, rsn, level, bracket, opponent_id) VALUES (?, ?, ?, 'loser', NULL)",
+            (user.id, rsn, initial_level))
+
+        # Assign the gungamer role to the player
+        role = discord.utils.get(ctx.guild.roles, name=player_role)
+        if role:
+            await user.add_roles(role)
+
+        # Check if game is live and try to pair the new joining player if someone is waiting to pair up
+        if await is_game_live(db):
+            cursor.execute(
+                'SELECT discord_id FROM gun_game WHERE bracket = "loser" AND opponent_id IS NULL AND discord_id != ?',
+                (user.id,))
+            available_player = cursor.fetchone()
+            if available_player:
+                available_player_id = available_player[0]
+                cursor.execute('UPDATE gun_game SET opponent_id = ? WHERE discord_id = ?',
+                               (available_player_id, user.id))
+                cursor.execute('UPDATE gun_game SET opponent_id = ? WHERE discord_id = ?',
+                               (user.id, available_player_id))
+                await ctx.send(f"{user.mention} has been paired with <@{available_player_id}>. Good luck!")
+            else:
+                await ctx.send(f"{user.mention}, you have no new opponent at this time.")
+
+        conn.commit()
+        conn.close()
+
+        await ctx.reply(
+            f"{user.mention} has successfully signed up for the gun game and been assigned the {player_role} role! {proof}")
+
 
     @commands.hybrid_command(name="gun_game_signup", description="Sign up for the gun game!")
     @app_commands.describe(rsn="Your RuneScape name.")
@@ -190,10 +258,15 @@ class GunGame(commands.Cog):
             conn.close()
             return
 
+        # Determine the initial level based on whether the game is live or not
+        initial_level = 0
+        if await is_game_live(db):
+            initial_level = 1
+
         # Insert the player into the players db, new players start as LOSERS
         cursor.execute(
-            "INSERT INTO gun_game (discord_id, rsn, level, bracket, opponent_id) VALUES (?, ?, 0, 'loser', NULL)",
-            (ctx.author.id, rsn))
+            "INSERT INTO gun_game (discord_id, rsn, level, bracket, opponent_id) VALUES (?, ?, ?, 'loser', NULL)",
+            (ctx.author.id, rsn, initial_level))
 
         # Assign the gungamer role to the player
         role = discord.utils.get(ctx.guild.roles, name=player_role)
@@ -245,7 +318,7 @@ class GunGame(commands.Cog):
 
     @commands.hybrid_command(name="get_current_task", description="Get your current task based on your level.")
     async def get_current_task(self, ctx: commands.Context):
-        # See above
+        # See above - oh I moved, way above :) comments are yawn
         db = await get_db(ctx)
         conn = sqlite3.connect(db)
         cursor = conn.cursor()
@@ -257,7 +330,7 @@ class GunGame(commands.Cog):
             return
 
         level = result[0]
-        task_name = get_task_name_by_level(db, level)
+        task_name = await get_task_name_by_level(db, level)
         await ctx.reply(f"Your current task is: {task_name}")
 
     @commands.hybrid_command(name="knife", description="Knife a user, moving them back one level.")
