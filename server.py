@@ -9,7 +9,7 @@ app = Flask(__name__)
 HEADERS = ["discordId", "rsn", "level", "bracket", "opponentId"]
 
 # default is RNGStreet
-GUILD_ID = os.environ.get("DB_PATH", "1196425312708345896")
+GUILD_ID = os.environ.get("GUILD_ID", "532377514975428628")
 DB_PATH = f"databases/{GUILD_ID}.db"
 
 
