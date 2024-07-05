@@ -380,7 +380,7 @@ class GunGame(commands.Cog):
             cursor.execute("UPDATE gun_game SET level = ? WHERE discord_id = ?", (new_level, user_id))
             cursor.execute(
                 "INSERT INTO game_actions (discord_id, action, level, timestamp) VALUES (?, ?, ?, ?)",
-                (ctx.author.id, 'knife', new_level, datetime.now().isoformat()))
+                (user_id, 'knife', new_level, datetime.now().isoformat()))
 
             conn.commit()
             await ctx.send(f"<@{ctx.author.id}> has knifed <@{user_id}>, moving them back to level {new_level}.")
